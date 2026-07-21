@@ -177,8 +177,8 @@
     background: var(--line);
     flex-shrink:0;
   }
-  .plate-chip.selected{ border-color: var(--accent); background: rgba(0,171,221,0.12); }
-  .plate-chip.selected .dot{ background: var(--accent); }
+  .plate-chip.selected{ border-color: #1be023; background: rgba(27,224,35,0.12); }
+  .plate-chip.selected .dot{ background: #1be023; }
 
   .ex-entry{
     border-top: 1px solid var(--line);
@@ -517,6 +517,22 @@
         </div>
       </div>
       <div class="card">
+        <h2>Change email</h2>
+        <p class="hint">You'll get a confirmation link at your new address before the change takes effect.</p>
+        <div class="row">
+          <input type="email" id="newEmailInput" placeholder="New email" autocomplete="email">
+          <button class="btn-primary" id="saveEmailBtn" style="flex:0 0 auto;">Save</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Change password</h2>
+        <input type="password" id="newPasswordInput" placeholder="New password" autocomplete="new-password" style="margin-bottom:10px;">
+        <div class="row">
+          <input type="password" id="confirmPasswordInput" placeholder="Confirm new password" autocomplete="new-password">
+          <button class="btn-primary" id="savePasswordBtn" style="flex:0 0 auto;">Save</button>
+        </div>
+      </div>
+      <div class="card">
         <h2>Sign out</h2>
         <p class="hint">You'll need your email and password to sign back in.</p>
         <button class="btn-ghost btn-full" id="logoutBtn">Sign out</button>
@@ -634,7 +650,7 @@ function showToast(msg){
 
 // Native confirm()/alert() are blocked inside the sandboxed preview, so
 // use a custom in-app modal instead. Returns a Promise<boolean>.
-function showConfirm(message){
+function showConfirm(message, okLabel){
   return new Promise(resolve=>{
     const overlay = document.getElementById('confirmOverlay');
     document.getElementById('confirmMessage').textContent = message;
@@ -642,6 +658,8 @@ function showConfirm(message){
 
     const okBtn = document.getElementById('confirmOk');
     const cancelBtn = document.getElementById('confirmCancel');
+    okBtn.textContent = okLabel || 'Delete';
+    okBtn.className = (okLabel && okLabel !== 'Delete') ? 'btn-primary' : 'btn-danger';
 
     function cleanup(result){
       overlay.classList.remove('show');
@@ -1551,8 +1569,58 @@ document.getElementById('saveUsernameBtn').addEventListener('click', async ()=>{
   }
 });
 
+document.getElementById('saveEmailBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('newEmailInput').value.trim();
+  if(!email){
+    showToast('Enter a new email first.');
+    return;
+  }
+  const btn = document.getElementById('saveEmailBtn');
+  btn.disabled = true;
+  try{
+    const { error } = await supabaseClient.auth.updateUser({ email });
+    if(error) throw error;
+    showToast('Check your new inbox to confirm the change.');
+    document.getElementById('newEmailInput').value = '';
+  }catch(e){
+    showToast(e.message || 'Could not update email.');
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('savePasswordBtn').addEventListener('click', async ()=>{
+  const pw = document.getElementById('newPasswordInput').value;
+  const confirmPw = document.getElementById('confirmPasswordInput').value;
+  if(!pw || !confirmPw){
+    showToast('Fill in both password fields.');
+    return;
+  }
+  if(pw.length < 6){
+    showToast('Password must be at least 6 characters.');
+    return;
+  }
+  if(pw !== confirmPw){
+    showToast('Passwords don\'t match.');
+    return;
+  }
+  const btn = document.getElementById('savePasswordBtn');
+  btn.disabled = true;
+  try{
+    const { error } = await supabaseClient.auth.updateUser({ password: pw });
+    if(error) throw error;
+    showToast('Password updated.');
+    document.getElementById('newPasswordInput').value = '';
+    document.getElementById('confirmPasswordInput').value = '';
+  }catch(e){
+    showToast(e.message || 'Could not update password.');
+  }finally{
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-  const ok = await showConfirm('Sign out of Volume.Log?');
+  const ok = await showConfirm('Log out of Volume?', 'Sign out');
   if(!ok) return;
   await supabaseClient.auth.signOut();
   currentUser = null;
@@ -1561,6 +1629,9 @@ document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
   document.getElementById('usernameInput').value = '';
+  document.getElementById('newEmailInput').value = '';
+  document.getElementById('newPasswordInput').value = '';
+  document.getElementById('confirmPasswordInput').value = '';
 });
 
 async function onAuthenticated(user){
