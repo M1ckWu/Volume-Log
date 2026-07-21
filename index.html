@@ -126,7 +126,7 @@
     font-weight:600;
   }
 
-  input[type=text], input[type=number], input[type=date], select{
+  input[type=text], input[type=number], input[type=date], input[type=email], input[type=password], select{
     background: var(--surface-2);
     border: 1px solid var(--line);
     color: var(--text);
@@ -503,9 +503,22 @@
         <h2>Your exercises</h2>
         <div id="exerciseList"></div>
       </div>
+    </section>
+
+    <!-- SETTINGS TAB -->
+    <section class="tab" id="tab-settings">
       <div class="card">
         <h2>Account</h2>
         <div class="hint" id="accountEmail"></div>
+        <div class="form-title" style="margin-top:14px;">Username</div>
+        <div class="row">
+          <input type="text" id="usernameInput" placeholder="Choose a username">
+          <button class="btn-primary" id="saveUsernameBtn" style="flex:0 0 auto;">Save</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Sign out</h2>
+        <p class="hint">You'll need your email and password to sign back in.</p>
         <button class="btn-ghost btn-full" id="logoutBtn">Sign out</button>
       </div>
     </section>
@@ -528,6 +541,10 @@
       <button class="tabbtn" data-tab="exercises">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l4 4-4 4M18 6l-4 4 4 4"/><path d="M2 12h2M20 12h2"/></svg>
         Exercises
+      </button>
+      <button class="tabbtn" data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
       </button>
     </div>
   </nav>
@@ -1514,6 +1531,26 @@ document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
   }
 });
 
+document.getElementById('saveUsernameBtn').addEventListener('click', async ()=>{
+  const username = document.getElementById('usernameInput').value.trim();
+  if(!username){
+    showToast('Enter a username first.');
+    return;
+  }
+  const btn = document.getElementById('saveUsernameBtn');
+  btn.disabled = true;
+  try{
+    const { data: updated, error } = await supabaseClient.auth.updateUser({ data: { username } });
+    if(error) throw error;
+    currentUser = updated.user;
+    showToast('Username saved.');
+  }catch(e){
+    showToast(e.message || 'Could not save username.');
+  }finally{
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   const ok = await showConfirm('Sign out of Volume.Log?');
   if(!ok) return;
@@ -1523,12 +1560,14 @@ document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   document.getElementById('authScreen').style.display = 'flex';
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
+  document.getElementById('usernameInput').value = '';
 });
 
 async function onAuthenticated(user){
   currentUser = user;
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('accountEmail').textContent = `Signed in as ${user.email}`;
+  document.getElementById('usernameInput').value = (user.user_metadata && user.user_metadata.username) || '';
   await loadData();
   renderExercisePicker();
   renderLogPresetPicker();
