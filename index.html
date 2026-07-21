@@ -399,7 +399,6 @@
 <div class="app">
   <header class="top">
     <h1>Volume<span>.</span>Log</h1>
-    <div class="date" id="headerDate"></div>
   </header>
 
   <main>
@@ -535,7 +534,7 @@
       <div class="card">
         <h2>Sign out</h2>
         <p class="hint">You'll need your email and password to sign back in.</p>
-        <button class="btn-ghost btn-full" id="logoutBtn">Sign out</button>
+        <button class="btn-danger btn-full" id="logoutBtn">Sign out</button>
       </div>
     </section>
   </main>
@@ -659,7 +658,7 @@ function showConfirm(message, okLabel){
     const okBtn = document.getElementById('confirmOk');
     const cancelBtn = document.getElementById('confirmCancel');
     okBtn.textContent = okLabel || 'Delete';
-    okBtn.className = (okLabel && okLabel !== 'Delete') ? 'btn-primary' : 'btn-danger';
+    okBtn.className = 'btn-danger';
 
     function cleanup(result){
       overlay.classList.remove('show');
@@ -1658,7 +1657,6 @@ function escapeHtml(str){
 
 // ---------- Init ----------
 async function init(){
-  document.getElementById('headerDate').textContent = prettyDate(todayStr());
   document.getElementById('logDate').textContent = prettyDate(todayStr());
 
   const { data: { session } } = await supabaseClient.auth.getSession();
