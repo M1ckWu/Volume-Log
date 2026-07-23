@@ -629,7 +629,7 @@ function loadDraftFromStorage(){
     workoutDraft = {};
     selectedExerciseIds.forEach(id=>{
       const sets = parsed.workoutDraft[id];
-      workoutDraft[id] = Array.isArray(sets) && sets.length ? sets : [{reps:'', weight:''}];
+      workoutDraft[id] = Array.isArray(sets) && sets.length ? sets : [{Reps:'', Weight:''}];
     });
   }catch(e){ /* corrupt data, ignore */ }
 }
