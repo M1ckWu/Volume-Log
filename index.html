@@ -136,7 +136,17 @@
     font-size: 15px;
     width: 100%;
   }
-  input[type=date]{ color-scheme: dark; }
+  input[type=date]{
+    color-scheme: dark;
+    padding-right: 8px;
+  }
+  input[type=date]::-webkit-datetime-edit{ padding-right: 6px; }
+  input[type=date]::-webkit-calendar-picker-indicator{
+    margin-left: 8px;
+    padding: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
   input[type=number]{ font-family:'JetBrains Mono', monospace; }
   input:focus, select:focus{ outline: 2px solid var(--accent-dim); outline-offset: 1px; }
 
@@ -595,6 +605,40 @@ let currentUser = null;
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
+// ---------- Log draft persistence (survives reload / closing the app) ----------
+function draftStorageKey(){
+  return currentUser ? `volumeLogDraft_${currentUser.id}` : null;
+}
+function saveDraftToStorage(){
+  const key = draftStorageKey();
+  if(!key) return;
+  try{
+    localStorage.setItem(key, JSON.stringify({ selectedExerciseIds, workoutDraft }));
+  }catch(e){ /* storage unavailable, fail silently */ }
+}
+function loadDraftFromStorage(){
+  const key = draftStorageKey();
+  if(!key) return;
+  try{
+    const raw = localStorage.getItem(key);
+    if(!raw) return;
+    const parsed = JSON.parse(raw);
+    if(!parsed || !Array.isArray(parsed.selectedExerciseIds) || !parsed.workoutDraft) return;
+    // drop any exercise ids that no longer exist (e.g. deleted since the draft was saved)
+    selectedExerciseIds = parsed.selectedExerciseIds.filter(id => data.exercises.some(e=>e.id===id));
+    workoutDraft = {};
+    selectedExerciseIds.forEach(id=>{
+      const sets = parsed.workoutDraft[id];
+      workoutDraft[id] = Array.isArray(sets) && sets.length ? sets : [{reps:'', weight:''}];
+    });
+  }catch(e){ /* corrupt data, ignore */ }
+}
+function clearDraftStorage(){
+  const key = draftStorageKey();
+  if(!key) return;
+  try{ localStorage.removeItem(key); }catch(e){}
+}
+
 function todayStr(){
   const d = new Date();
   const y = d.getFullYear();
@@ -717,6 +761,7 @@ function renderExercisePicker(){
         selectedExerciseIds.push(ex.id);
         workoutDraft[ex.id] = [{reps:'', weight:''}];
       }
+      saveDraftToStorage();
       renderExercisePicker();
       renderWorkoutEntries();
     });
@@ -726,6 +771,7 @@ function renderExercisePicker(){
 document.getElementById('clearSelectionBtn').addEventListener('click', ()=>{
   selectedExerciseIds = [];
   workoutDraft = {};
+  saveDraftToStorage();
   renderExercisePicker();
   renderWorkoutEntries();
 });
@@ -754,6 +800,7 @@ function renderLogPresetPicker(){
           added++;
         }
       });
+      saveDraftToStorage();
       renderExercisePicker();
       renderWorkoutEntries();
       showToast(added > 0 ? `"${preset.name}" loaded` : `"${preset.name}" is already loaded`);
@@ -821,19 +868,23 @@ function renderWorkoutEntries(){
       const cleaned = e.target.value.replace(/[^0-9]/g, '');
       if(cleaned !== e.target.value) e.target.value = cleaned;
       workoutDraft[exId][setIdx].reps = cleaned;
+      saveDraftToStorage();
     });
     row.querySelector('.weight-input').addEventListener('input', e=>{
       workoutDraft[exId][setIdx].weight = e.target.value;
+      saveDraftToStorage();
     });
     row.querySelector('.remove').addEventListener('click', ()=>{
       workoutDraft[exId].splice(setIdx,1);
       if(workoutDraft[exId].length === 0) workoutDraft[exId].push({reps:'',weight:''});
+      saveDraftToStorage();
       renderWorkoutEntries();
     });
   });
   container.querySelectorAll('.add-set').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       workoutDraft[btn.dataset.ex].push({reps:'', weight:''});
+      saveDraftToStorage();
       renderWorkoutEntries();
     });
   });
@@ -845,6 +896,7 @@ function moveExercise(exId, direction){
   const swapWith = direction === 'up' ? idx - 1 : idx + 1;
   if(swapWith < 0 || swapWith >= selectedExerciseIds.length) return;
   [selectedExerciseIds[idx], selectedExerciseIds[swapWith]] = [selectedExerciseIds[swapWith], selectedExerciseIds[idx]];
+  saveDraftToStorage();
   renderWorkoutEntries();
 }
 
@@ -866,6 +918,7 @@ document.getElementById('saveWorkoutBtn').addEventListener('click', async ()=>{
   await saveData();
   selectedExerciseIds = [];
   workoutDraft = {};
+  clearDraftStorage();
   renderExercisePicker();
   renderWorkoutEntries();
   showToast('Workout saved');
@@ -1639,6 +1692,7 @@ async function onAuthenticated(user){
   document.getElementById('accountEmail').textContent = `Signed in as ${user.email}`;
   document.getElementById('usernameInput').value = (user.user_metadata && user.user_metadata.username) || '';
   await loadData();
+  loadDraftFromStorage();
   renderExercisePicker();
   renderLogPresetPicker();
   renderWorkoutEntries();
